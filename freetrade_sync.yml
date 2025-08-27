@@ -1,0 +1,54 @@
+name: Daily Freetrade → GitHub
+
+on:
+  schedule:
+    # GitHub cron is UTC. These two lines cover 09:00 Europe/London across DST.
+    - cron: '0 8 * * *'   # runs 09:00 during British Summer Time (UTC+1)
+    - cron: '0 9 * * *'   # runs 09:00 during GMT (UTC+0)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GH_PATH: ${{ secrets.GH_PATH || 'activity_log.csv' }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright pandas pyotp pytz python-dateutil
+          python -m playwright install --with-deps chromium
+
+      - name: Run sync
+        env:
+          FT_EMAIL: ${{ secrets.FT_EMAIL }}
+          FT_PASSWORD: ${{ secrets.FT_PASSWORD }}
+          FT_TOTP_SECRET: ${{ secrets.FT_TOTP_SECRET }}
+          TZ: Europe/London
+        run: |
+          python .github/scripts/freetrade_sync.py
+
+      - name: Commit changes (if any)
+        run: |
+          if git diff --quiet; then
+            echo "No new activity; file unchanged."
+          else
+            NEW_ROWS=$(cat .github/scripts/.new_rows || echo "0")
+            DATE=$(date +'%Y-%m-%d')
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add "${GH_PATH}"
+            git commit -m "chore(activity): update ${GH_PATH} ${DATE} (+${NEW_ROWS} rows)"
+            git push
+            echo "Commit: $(git rev-parse --short HEAD)"
+          fi
