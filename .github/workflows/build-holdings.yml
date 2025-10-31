@@ -1,0 +1,25 @@
+name: Build holdings
+
+on:
+  push:
+    paths:
+      - "data/activity.csv"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Generate holdings.csv
+        run: |
+          python -m pip install --upgrade pip
+          python scripts/build_holdings.py
+      - name: Commit holdings.csv
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "build: update holdings.csv"
+          file_pattern: data/holdings.csv
