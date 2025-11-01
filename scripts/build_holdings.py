@@ -172,3 +172,21 @@ if __name__ == "__main__":
     print(f"Reading {src}")
     build_holdings(src, dst)
     print(f"Wrote {dst}")
+if __name__ == "__main__":
+    src = find_input_csv()
+    dst = DATA_DIR / "holdings.csv"
+    print(f"Reading {src}")
+    build_holdings(src, dst)
+    print(f"Wrote {dst}")
+
+    # Archive the input so /data is ready for the next upload
+    archive_dir = DATA_DIR / "archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    # Timestamped filename, preserve a hint of the original
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    src_name = src.name.replace(" ", "_")
+    archived = archive_dir / f"{ts}__{src_name}"
+    src.rename(archived)
+    print(f"Archived input to {archived}")
+
