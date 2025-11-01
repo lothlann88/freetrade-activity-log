@@ -14,8 +14,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
@@ -28,29 +30,47 @@ jobs:
           python -m pip install --upgrade pip
           python scripts/build_holdings.py
 
-      # NEW: archive any activity files regardless of name
+      # Archive AFTER generating holdings
       - name: Archive input CSV(s)
         shell: bash
         run: |
           set -euo pipefail
+          set -x
           mkdir -p data/archive
           shopt -s nullglob
+          found=0
           for f in data/activity.csv data/activity-feed-export_*.csv; do
             if [ -f "$f" ]; then
+              found=1
               ts=$(date -u +%Y%m%d_%H%M%S)
               base=$(basename "$f" | tr ' ' '_' )
-              mv "$f" "data/archive/${ts}__${base}"
-              echo "Archived $f -> data/archive/${ts}__${base}"
+              dest="data/archive/${ts}__${base}"
+              echo "Archiving $f -> $dest"
+              git mv "$f" "$dest" || mv "$f" "$dest"
             fi
           done
+          if [ "$found" -eq 0 ]; then
+            echo "No activity files found to archive."
+          fi
 
+      - name: Debug status before commit
+        shell: bash
+        run: |
+          set -x
+          echo "=== git status ==="
+          git status --porcelain=v1
+          echo "=== tree ==="
+          ls -la
+          echo "=== data ==="
+          ls -la data || true
+          echo "=== data/archive ==="
+          ls -la data/archive || true
+
+      # Commit ALL changes (don’t rely on file_pattern globs)
       - name: Commit holdings and archive
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "build: update holdings.csv and archive input"
-          file_pattern: |
-            data/holdings.csv
-            data/archive/**
-          # IMPORTANT: stage deletions (the moved activity file disappears from /data)
           add_options: --all
+          # no file_pattern => commit all staged/changed files
           branch: ${{ github.ref_name }}
