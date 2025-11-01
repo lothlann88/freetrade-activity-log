@@ -28,9 +28,11 @@ jobs:
           python -m pip install --upgrade pip
           python scripts/build_holdings.py
 
-      - name: Commit holdings.csv
+      - name: Commit holdings and archive
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "build: update holdings.csv"
-          file_pattern: data/holdings.csv
+          commit_message: "build: update holdings.csv and archive input"
+          file_pattern: |
+            data/holdings.csv
+            data/archive/**
           branch: ${{ github.ref_name }}
